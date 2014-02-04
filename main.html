@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <link rel="stylesheet" href="main.css">
+    <link rel="stylesheet" href="SafariStyle.css">
+    <script type="text/javascript" src="file:///System/Library/WidgetResources/AppleClasses/AppleAnimator.js" charset="utf-8"></script>
+    <script type="text/javascript" src="file:///System/Library/WidgetResources/AppleClasses/AppleButton.js" charset="utf-8"></script>
+    <script type="text/javascript" src="file:///System/Library/WidgetResources/AppleClasses/AppleInfoButton.js" charset="utf-8"></script>
+    <script type="text/javascript" src="file:///System/Library/WidgetResources/AppleClasses/AppleScrollbar.js" charset="utf-8"></script>
+    <script type="text/javascript" src="file:///System/Library/WidgetResources/AppleClasses/AppleScrollArea.js" charset="utf-8"></script>
+    <script type="text/javascript" src="localizedStrings.js" charset="utf-8"></script>
+    <script type="text/javascript" src="attributes.js" charset="utf-8"></script>
+    <script type="text/javascript" src="Parts/utilities.js" charset="utf-8"></script>
+    <script type="text/javascript" src="Parts/setup.js" charset="utf-8"></script>
+    <script type="text/javascript" src="Parts/InfoButton.js" charset="utf-8"></script>
+    <script type="text/javascript" src="Parts/GlassButton.js" charset="utf-8"></script>
+    <script type="text/javascript" src="Parts/Shape.js"></script>
+    <script type="text/javascript" src="Parts/ScrollArea.js"></script>
+    <script type="text/javascript" src="Parts/Text.js" charset="utf-8"></script>
+    <script type="text/javascript" src="main.js" charset="utf-8"></script>
+</head>
+<body onload="load();">
+    <div id="front">
+        <img id="frontImg" src="Images/front.png" alt="">
+        <div id="topRectangleShape"></div>
+        <div id="bottomRectangleShape" onclick="clickOnBottomRectangle(event);"></div>
+        <div id="contentarea">
+            <div id="content" class="content" style="position: absolute; left: 11px; top: 0px; right: 36px; bottom: 0px; overflow-x: hidden; overflow-y: hidden; "></div>
+        </div>
+        <div id="loading-text"></div>
+        <div id="info"></div>
+        <div id="rectangleShape"></div>
+        <img src="Images/logo-1.png" id="img"><img src="Images/cat.psd" id="img1">
+        <div id="username_display"></div>
+    </div>
+    <div id="back">
+        <div id="roundedRectangleShape"></div>
+        <div class="grouptitle" id="article-length"></div>
+        <img src="Images/Smaller.tif" width="16" height="16" onclick="scaleToMin()" id="sliderMin">
+        <input id="slider" type="range" min="0" value="100" max="100" oninput="scaleArticles(this.value)">
+        <img src="Images/Bigger.tif" width="16" height="16" onclick="scaleToMax()" id="sliderMax">
+        <div id="done"></div>
+        <img src="Images/logo-1.png" id="img2"><img src="Images/cat.psd" id="img3">
+        <div id="text"></div>
+        <input type="text" name="" value="" id="username">
+        <input type="text" name="" value="" id="password">
+        <div id="text1"></div>
+        <div id="text2"></div>
+    </div>
+</body>
+</html>
