@@ -1,0 +1,8 @@
+#!/bin/sh
+
+mkdir /tmp/GitHub.wdgt
+cp -a * /tmp/GitHub.wdgt
+cp -a /tmp/GitHub.wdgt .
+rm -rf /tmp/GitHub.wdgt
+cp -a GitHub.wdgt ~/Library/Widgets
+open ~/Library/Widgets/GitHub.wdgt
