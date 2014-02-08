@@ -1,5 +1,6 @@
 #!/bin/sh
 
+cd `dirname \`command -v "$0"\``
 mkdir /tmp/GitHub.wdgt
 cp -a * /tmp/GitHub.wdgt
 cp -a /tmp/GitHub.wdgt .
