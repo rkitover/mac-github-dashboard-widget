@@ -60,6 +60,8 @@ function refreshFeed()
     httpFeedRequest.open("GET", feed.url);
     httpFeedRequest.setRequestHeader("Cache-Control", "no-cache");
 
+    var username = widget.preferenceForKey("username");
+    var password = widget.preferenceForKey("password");
 
     if(username && username.length > 0 && password && password.length > 0) {
         httpFeedRequest.setRequestHeader("Authorization", "Basic " + base64Encode(username + ":" + password));
