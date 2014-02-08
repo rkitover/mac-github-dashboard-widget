@@ -2,7 +2,8 @@
 
 ### Installation
 
-Run either ```./install``` or ```make install``` if you have XCode installed.
+Click the "Download Zip" button, open the unpacked folder and double click the
+"install" file.
 
 This installs and launches the Dashboard widget for your user.
 
