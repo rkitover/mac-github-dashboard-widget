@@ -1020,7 +1020,7 @@ function determineFeedSource() {
     username = widget.preferenceForKey("username");
     password = widget.preferenceForKey("password");
     if(username && username.length > 0 && password && password.length > 0) {
-      setFeedSource("https://github.com/"+username+".private.atom");
+      setFeedSource("https://github.com/"+username+".atom");
       document.getElementById("username_display").innerHTML = username;
     } else {
       setFeedSource("feed://github.com/repositories.atom");
