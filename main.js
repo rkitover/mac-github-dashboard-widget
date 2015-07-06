@@ -201,10 +201,16 @@ function deDup(arr) {
     return arr.filter(function(item, pos, ary) {
         if (pos == 0) return true;
 
-        if (item['link']                  == ary[pos - 1]['link']            &&
-            item['date'].getTime()        == ary[pos - 1]['date'].getTime()  &&
-            item['title'].innerHTML       == ary[pos - 1]['title'].innerHTML &&
-            item['description'].innerHTML == ary[pos - 1]['description'].innerHTML) {
+        var removeRelDate = function(node) {
+            var clone = node.cloneNode(true);
+            $('.reldate', clone).remove();
+            return clone.innerHTML;
+        };
+
+        if (item['link']                       == ary[pos - 1]['link']            &&
+            item['date'].getTime()             == ary[pos - 1]['date'].getTime()  &&
+            item['title'].innerHTML            == ary[pos - 1]['title'].innerHTML &&
+            removeRelDate(item['description']) == removeRelDate(ary[pos - 1]['description'])) {
                 return false;
         }
 
