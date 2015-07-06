@@ -8,10 +8,11 @@
 var numItemsToShow;         // Max number of items to display; -1 = all
 var maxAgeToShow;           // Max age in days; 0 = today, -1 = all
 var showDate;               // Whether to show the article dates
-var feed = { url: null, title: "", baseURL: null };  // Object to hold information about the current feed
+var feed = { url: [], title: [], baseURL: [] };      // Object to hold information about the current feed
 var lastUpdated = 0;                                 // Track last refresh time to avoid excessive updates
-var lastResults = null;                              // Previous feed contents
-var httpFeedRequest = null;                          // The current XMLHttpRequest
+var lastResults = [];                                // Previous feed contents
+var cacheSize       = 100;                           // How many top items to keep in lastResults cache
+var httpFeedRequest = [];                            // The current XMLHttpRequest
 var loadingAnimationTimer = null;                    // Updates the "Loading..." animation's dots
 var filterString = "";                               // String to filter results while searching
 var slider;                                          // Article length slider element on the back
@@ -28,7 +29,8 @@ var NS_XHTML = "http://www.w3.org/1999/xhtml";
 //
 function refreshFeed()
 {
-  //alert("Loading: "+ feed.url);
+    if (loading()) return;
+
     if (!feed.url || feed.url.length < 1) {
         showMessageInContents(dashcode.getLocalizedString("No Feed Specified"),
             dashcode.getLocalizedString("Please specify a valid feed URL."));
@@ -38,38 +40,68 @@ function refreshFeed()
     showLoadingMessage();
 
     // Abort any pending request before starting a new one
-    if (httpFeedRequest != null) {
-        httpFeedRequest.abort();
-        httpFeedRequest = null;
-    }
-    httpFeedRequest = new XMLHttpRequest();
-
-    // Function callback when feed is loaded
-    httpFeedRequest.onload = function (e)
-    {
-        var feedRootElement;
-        if (httpFeedRequest.responseXML) feedRootElement = httpFeedRequest.responseXML.documentElement;
-
-        // Request is no longer pending
-        httpFeedRequest = null;
-
-        // Process the loaded document
-        processFeedDocument(feedRootElement);
-    }
-    httpFeedRequest.overrideMimeType("text/xml");
-    httpFeedRequest.open("GET", feed.url);
-    httpFeedRequest.setRequestHeader("Cache-Control", "no-cache");
-
-    var username = widget.preferenceForKey("username");
-    var password = widget.preferenceForKey("password");
-
-    if(username && username.length > 0 && password && password.length > 0) {
-        httpFeedRequest.setRequestHeader("Authorization", "Basic " + base64Encode(username + ":" + password));
+    for (var i = 0; i < httpFeedRequest.length; i++) {
+        if (httpFeedRequest[i] != null) {
+            httpFeedRequest[i].abort();
+        }
+        httpFeedRequest = [];
     }
 
+    var reqCount = 0;
+    var documentsToProcess = [];
 
-    // Send the request asynchronously
-    httpFeedRequest.send(null);
+    for (var i = 0; i < feed.url.length; i++) {
+        var r = new XMLHttpRequest();
+        var url = feed.url[i];
+
+        // Function callback when feed is loaded
+        r.onreadystatechange = function (e) {
+            if (this.readyState === 4) {
+                if (this.status === 200) {
+                    var feedRootElement;
+                    if (this.responseXML) {
+                        feedRootElement = this.responseXML.documentElement;
+                    }
+                    else {
+                        showMessageInContents(dashcode.getLocalizedString('HTTP Error Getting Feed for ') + this.__MY_URL, this.responsText);
+                        hideLoadingMessage();
+                        return;
+                    }
+
+                    // Process the loaded document
+                    documentsToProcess.push([feedRootElement, this.__MY_URL]);
+                    reqCount++;
+
+                    if (reqCount == feed.url.length) {
+                        for (var i = 0; i < documentsToProcess.length; i++) {
+                            processFeedDocument(documentsToProcess[i][0], documentsToProcess[i][1]);
+                        }
+                        hideLoadingMessage();
+                    }
+                }
+                else { // error
+                    showMessageInContents(dashcode.getLocalizedString('HTTP Error Getting Feed for ') + this.__MY_URL, this.statusText);
+                    hideLoadingMessage();
+                }
+            }
+        }
+        r.__MY_URL = url;
+        r.overrideMimeType("text/xml");
+        r.open("GET", url, true);
+        r.setRequestHeader("Cache-Control", "no-cache");
+
+        var username = getSetting("username");
+        var password = getSetting("password");
+
+        if(username && username.length > 0 && password && password.length > 0) {
+            r.setRequestHeader("Authorization", "Basic " + base64Encode(username + ":" + password));
+        }
+
+        // Send the request asynchronously
+        r.send(null);
+
+        httpFeedRequest[i] = r;
+    }
 }
 
 //
@@ -78,9 +110,8 @@ function refreshFeed()
 //
 // doc: XML document containing the feed
 //
-function processFeedDocument(doc)
+function processFeedDocument(doc, url)
 {
-    hideLoadingMessage();
     if (doc) {
         // Remove the old entries
         clearContent();
@@ -88,12 +119,12 @@ function processFeedDocument(doc)
         // Determine the feed type and call the appropriate parser
         var results;
         if (doc.tagName.toLowerCase() == "feed") {
-            results = parseAtomFeed(doc);
+            results = parseAtomFeed(doc, url);
         }
         else {
             // It's probably some version of RSS.
             // We don't care as long as it has <item>s
-            results = parseRSSFeed(doc);
+            results = parseRSSFeed(doc, url);
         }
 
         // Got no results?
@@ -103,11 +134,28 @@ function processFeedDocument(doc)
             return;
         }
 
-        // Save unfiltered results
-        lastResults = results;
+        // This is necessary because it was done later in the display
+        // process and broke the de-duplication (due to changes to the
+        // same DOM element being referenced.)
+        results.forEach(function(entry) {
+            fixLinks(entry.title,       url);
+            fixLinks(entry.description, url);
+            fixDateTimes(entry.description);
+        });
+
+        // merge into lastResults (for multiple feeds)
+        var allResults = results.concat(lastResults);
+
+        // sort by date
+        allResults.sort(function(a, b) {
+            return b.date.getTime() - a.date.getTime();
+        });
+
+        // remove duplicates
+        allResults = deDup(allResults);
 
         // Limit entries to top N, search terms, and date
-        results = filterEntries(results);
+        results = filterEntries(allResults);
 
         // Completely filtered out?
         if (results == null || results.length < 1) {
@@ -117,7 +165,7 @@ function processFeedDocument(doc)
         }
 
         // Generate the display
-        addEntriesToContents(results);
+        addEntriesToContents(results, url);
 
         // update the scrollbar so scrollbar matches new data
         refreshScrollArea();
@@ -127,14 +175,62 @@ function processFeedDocument(doc)
             checkNewItems(lastResults, results);
         }
 
+        // save to lastResults for next merge but only the top 100 or so
+        // entries (so that there's no memory leak)
+        lastResults = allResults.slice(0, cacheSize);
+
         // set lastUpdated to the current time to keep track of the last time a request was posted
         lastUpdated = (new Date).getTime();
     }
     else {
         // document is empty
         showMessageInContents(dashcode.getLocalizedString("Invalid Feed"),
-                              dashcode.getLocalizedString("%s does not appear to be a valid RSS or Atom feed.").replace("%s", feed.url));
+                              dashcode.getLocalizedString("%s does not appear to be a valid RSS or Atom feed.").replace("%s", url));
     }
+}
+
+//
+// Function: deDup(array)
+// Remove duplicates in a sorted array.
+//
+// array: a sorted array of feed objects
+//
+// Returns the array without duplicates.
+//
+function deDup(arr) {
+    return arr.filter(function(item, pos, ary) {
+        if (pos == 0) return true;
+
+        if (item['link']                  == ary[pos - 1]['link']            &&
+            item['date'].getTime()        == ary[pos - 1]['date'].getTime()  &&
+            item['title'].innerHTML       == ary[pos - 1]['title'].innerHTML &&
+            item['description'].innerHTML == ary[pos - 1]['description'].innerHTML) {
+                return false;
+        }
+
+        return true;
+    });
+}
+
+//
+// Function: transformTitleText(entry_title)
+// Replace the feed username with "You" to make it more personal.
+//
+// Returns the new title.
+//
+function transformTitleText(title)
+{
+    var title_text     = title.textContent;
+
+    var match_username = new RegExp('^\\s*' + getSetting('username') + '\\b');
+
+    var new_title_text = title_text.replace(match_username, dashcode.getLocalizedString('you'));
+
+    var new_title_node = title.cloneNode(true);
+
+    new_title_node.textContent = new_title_text;
+
+    return new_title_node;
 }
 
 //
@@ -145,12 +241,12 @@ function processFeedDocument(doc)
 //
 // Returns the parsed results array.
 //
-function parseAtomFeed(atom)
+function parseAtomFeed(atom, url)
 {
     // Check for a global base URL
     var base = atom.getAttribute("xml:base");
     if (base) {
-        feed.baseURL = splitURL(base);
+        feed.baseURL[feed.url.indexOf(url)] = splitURL(base);
     }
 
     var results = new Array;
@@ -159,7 +255,7 @@ function parseAtomFeed(atom)
     // Note that all elements of an item are optional.
     for (var item = atom.firstChild; item != null; item = item.nextSibling) {
         if (item.nodeName == "entry") {
-            var title = atomTextToHTML(findChild(item, "title"));
+            var title = transformTitleText(atomTextToHTML((findChild(item, "title"))));
 
             // we have to have the title to include the item in the list
             if (title) {
@@ -245,7 +341,7 @@ function atomTextToHTML(element)
 //
 // Returns the parsed results array.
 //
-function parseRSSFeed(rss)
+function parseRSSFeed(rss, url)
 {
     var results = new Array;
 
@@ -254,7 +350,7 @@ function parseRSSFeed(rss)
     if (channel) {
         var mainLinkEl = findChild(channel, "link");
         if (mainLinkEl) {
-            feed.baseURL = splitURL(allData(mainLinkEl));
+            feed.baseURL[feed.url.indexOf(url)] = splitURL(allData(mainLinkEl));
         }
     }
 
@@ -388,8 +484,10 @@ function checkNewItems(oldResults, newResults)
 //
 // Returns the created DIV element
 //
-function createRow(title, link, date, description, index)
+function createRow(title, link, date, description, index, url)
 {
+    var baseURL = feed.baseURL[feed.url.indexOf(url)];
+
     // create a DIV for the article
     var article = document.createElement("div");
     article.setAttribute("class", "article " + (index % 2 ? "even" : "odd"));
@@ -404,7 +502,7 @@ function createRow(title, link, date, description, index)
     var articlehead;
     if (link && link.length) {
         // if it is a relative link, make it absolute
-        if (link.indexOf(":") < 0) link = absoluteURL(link);
+        if (link.indexOf(":") < 0) link = absoluteURL(link, baseURL);
         // set the link
         articlehead = document.createElement("a");
         articlehead.setAttribute("href", link);
@@ -440,8 +538,6 @@ function createRow(title, link, date, description, index)
         article.appendChild(descElt);
     }
 
-    fixLinks(article);
-
     return article;
 }
 
@@ -473,7 +569,7 @@ function makeEntryDiv(content)
 //
 // entries: Array of items to display.
 //
-function addEntriesToContents(entries)
+function addEntriesToContents(entries, url)
 {
     // copy title and date into rows for display. Store link so it can be used when user
     // clicks on title
@@ -482,7 +578,7 @@ function addEntriesToContents(entries)
     var contentElement = document.getElementById("content");
     for (var i = 0; i < nItems; ++i) {
         var item = entries[i];
-        var row = createRow(item.title, item.link, item.date, item.description, i);
+        var row = createRow(item.title, item.link, item.date, item.description, i, url);
 
         contentElement.appendChild(row);
     }
@@ -576,6 +672,15 @@ function setLoadingText(loadingText)
 }
 
 //
+// Function: loading()
+// Returns true if currently loading the feeds, false otherwise.
+//
+function loading()
+{
+    return loadingAnimationTimer != null;
+}
+
+//
 // Function: startLoadingAnimation()
 // Places animated "Loading..." text on the widget while the feed loads.
 //
@@ -584,7 +689,7 @@ function startLoadingAnimation()
     var dots = 0;
     var animateLoadingDots = function ()
     {
-        var loading = dashcode.getLocalizedString("Loading");
+        var loading = dashcode.getLocalizedString("Loading...");
         for (var i = 0; i < dots; i++) {
             loading = loading + ".";
         }
@@ -665,8 +770,10 @@ function filterEntries(entries)
 //
 // htmlFragment: DOM element in which to adjust links.
 //
-function fixLinks(htmlFragment)
+function fixLinks(htmlFragment, url)
 {
+    var baseURL = feed.baseURL[feed.url.indexOf(url)];
+
     // Collect all the links
     var links = htmlFragment.getElementsByTagName("a");
     for (var i = 0; i < links.length; i++) {
@@ -674,7 +781,7 @@ function fixLinks(htmlFragment)
         var href = aNode.getAttribute("href");
         // Make it absolute if it isn't already
         if (href && href.indexOf(":") < 0) {
-            aNode.setAttribute("href", absoluteURL(href));
+            aNode.setAttribute("href", absoluteURL(href, baseURL));
         }
 
         // Send them to our clickOnLink function
@@ -682,6 +789,28 @@ function fixLinks(htmlFragment)
     }
 }
 
+function fixDateTimes(html)
+{
+    var times = html.getElementsByTagName('time');
+    for (var i = 0; i < times.length; i++) {
+        var tag  = times[i];
+        var date = parseDate(tag.getAttribute('datetime'));
+        tag.innerHTML = moment(date).format("[<span class='fulldate'>]ddd MMM Do YYYY, [at] h:mm a[</span>]")
+            + " (<span class='reldate'>" + moment(date).fromNow() + '</span>)';
+    }
+}
+
+//
+// Function: zeroPad(str, len)
+// Pad a str string left with zeroes to len.
+//
+// Returns new string.
+//
+function zeroPad(str, len)
+{
+    str += '';
+    return (new Array(len - str.length + 1)).join('0') + str
+}
 
 //
 // Function: parseDate(dateToParse)
@@ -752,6 +881,15 @@ function parseDate(dateToParse)
                         time += timeArray[5] * 3600000;
                     returnDate.setTime(time);
                 }
+                else {
+                    // Assume UTC and convert from UTC to local timezone
+                    returnDate = new Date(
+                        1900+returnDate.getYear() + '-' + zeroPad((1+returnDate.getMonth()), 2) + '-' +
+                        zeroPad(returnDate.getDate(), 2) + 'T' + zeroPad(returnDate.getHours(), 2) + ':' +
+                        zeroPad(returnDate.getMinutes(), 2) + ':' + zeroPad(returnDate.getSeconds(), 2) +'.' +
+                        zeroPad(returnDate.getMilliseconds(), 3) + 'Z'
+                    );
+                }
             }
         }
     }
@@ -818,17 +956,17 @@ function allData(node)
 //
 // Returns the absolute URL.
 //
-function absoluteURL(url)
+function absoluteURL(url, base)
 {
-    if (!feed.baseURL) {
+    if (!base) {
         return url;
     }
 
-    var baseURL = feed.baseURL.protocol + "://" + feed.baseURL.domain;
+    var baseURL = base.protocol + "://" + base.domain;
     // if it is absolute within the domain
     if (url.indexOf("/") == 0) url = baseURL + url;
     // if it is relative to the current resorce
-    else url = baseURL + "/" + feed.baseURL.resource + url;
+    else url = baseURL + "/" + base.resource + url;
     return url;
 }
 
@@ -866,7 +1004,7 @@ function createDateStr(date)
 //
 // searchEvent: onSearch event from search field.
 //
-function search(searchEvent)
+function search(searchEvent, url)
 {
     // Set the new search string, escaping special rexexp characters
     var searchTerms = searchEvent.target.value;
@@ -883,7 +1021,7 @@ function search(searchEvent)
         }
         else {
             // Generate the display
-            addEntriesToContents(searchResults);
+            addEntriesToContents(searchResults, url);
         }
         // update the scrollbar so scrollbar matches new data
         refreshScrollArea();
@@ -898,12 +1036,17 @@ function clickOnLink(e)
 {
     if (window.widget) {
         widget.openURL(this.href);
-        if (e) {
-            e.stopPropagation();
-            e.preventDefault();
-        }
-        return false;
     }
+    else {
+        var win = window.open(this.href, '_blank');
+        win.focus();
+    }
+
+    if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+    }
+    return false;
 }
 
 //
@@ -998,6 +1141,15 @@ function showElement(elementId)
 }
 
 //
+// Function: clearFeedSources()
+// Clears all feed URLs so that new ones can be set.
+//
+function clearFeedSources() {
+    feed.url = [];
+    feed.baseURL = [];
+}
+
+//
 // Function: setFeedSource()
 // Set the URL from where to get the feed.
 //
@@ -1011,21 +1163,24 @@ function setFeedSource(url) {
             url = "http://" + url;
         }
     }
-    feed.url = url;
-    feed.baseURL = splitURL(url);
+    feed.url.push(url);
+    feed.baseURL.push(splitURL(url));
 }
 
 function determineFeedSource() {
-  if(window.widget) {
-    username = widget.preferenceForKey("username");
-    password = widget.preferenceForKey("password");
-    if(username && username.length > 0 && password && password.length > 0) {
-      setFeedSource("https://github.com/"+username+".atom");
-      document.getElementById("username_display").innerHTML = username;
-    } else {
-      setFeedSource("feed://github.com/repositories.atom");
-      document.getElementById("username_display").innerHTML = "Recent Activity";
+  clearFeedSources();
+
+  username = getSetting("username");
+  password = getSetting("password");
+  if(username && username.length > 0 && password && password.length > 0) {
+    setFeedSource("https://github.com/"+username+".private.atom");
+    if (getSetting("self_feed") == 'true') {
+      setFeedSource("https://github.com/"+username+".private.actor.atom");
     }
+    document.getElementById("username_display").innerHTML = username;
+  } else {
+    setFeedSource("feed://github.com/repositories.atom");
+    document.getElementById("username_display").innerHTML = "Recent Activity";
   }
 }
 
@@ -1039,12 +1194,18 @@ function load()
 
     numItemsToShow = +attributes.numItemsToShow;
     maxAgeToShow   = +attributes.maxAgeToShow;
+    cacheSize      = +attributes.cacheSize;
     showDate       = attributes.showDate == 1;
 
     slider = document.getElementById("slider");
     scaleArticles(slider.value);
     
     determineFeedSource();
+
+    if (!window.widget) { // browser
+        window.onfocus = show;
+        show();
+    }
 }
 
 //
@@ -1093,6 +1254,39 @@ function sync()
     // Or this for global key's value:
     // globalPreferenceValue = widget.preferenceForKey(null, "your-key");
 }
+ 
+//
+// Function: getSetting(key)
+// Gets a widget preference, or an entry from localStorage if the app is
+// not running as a widget.
+//
+// key: the setting key to get
+//
+function getSetting(key) {
+    if (window.widget) {
+        return widget.preferenceForKey(key);
+    }
+
+    return window.localStorage.getItem(key);
+}
+
+//
+// Function: setSetting(value, key)
+// Sets a widget preference to disk, or sets the entry in localStorage
+// if the app is not running as a widget.
+//
+// value: the value to set
+// key: the key to set the value for
+//
+function setSetting(value, key) {
+    if (window.widget) {
+        widget.setPreferenceForKey(value, key);
+        return;
+    }
+
+    window.localStorage.setItem(key, value);
+    return;
+}
 
 //
 // Function: showBack(event)
@@ -1112,11 +1306,21 @@ function showBack(event)
     back.style.display="block";
 
     if (window.widget)
-        setTimeout("widget.performTransition();", 0);
+        setTimeout(function() {
+            widget.performTransition();
+        }, 0);
         
     document.getElementById("password").type = "password";
-    if(widget.preferenceForKey("username")) document.getElementById("username").value = widget.preferenceForKey("username");
-    if(widget.preferenceForKey("password")) document.getElementById("password").value = widget.preferenceForKey("password");
+    if(getSetting("username")) document.getElementById("username").value = getSetting("username");
+    if(getSetting("password")) document.getElementById("password").value = getSetting("password");
+
+    // default to showing own actions
+    if (getSetting("self_feed") == 'false') {
+        document.getElementById("self_feed").checked = false;
+    }
+    else {
+        document.getElementById("self_feed").checked = true;
+    }
 }
 
 //
@@ -1126,10 +1330,18 @@ function showBack(event)
 // event: onClick event from the done button
 //
 function showFront(event) {
-  if(window.widget) {
-    widget.setPreferenceForKey(document.getElementById("username").value,"username"); // save the new preference to disk
-    widget.setPreferenceForKey(document.getElementById("password").value,"password"); // save the new preference to disk
-	}
+  setSetting(document.getElementById("username").value,"username"); // save the new preference to disk
+  setSetting(document.getElementById("password").value,"password"); // save the new preference to disk
+  if (document.getElementById("self_feed").checked) {
+    setSetting("true", "self_feed");
+  }
+  else {
+    setSetting("false", "self_feed");
+  }
+
+  // reset cache because 'own feed' option may have changed
+  lastResults = [];
+
   determineFeedSource();
   refreshFeed();
   
@@ -1143,7 +1355,9 @@ function showFront(event) {
   back.style.display = "none";
 
   if (window.widget)
-      setTimeout("widget.performTransition();", 0);
+      setTimeout(function() {
+          widget.performTransition();
+      }, 0);
 
   //refreshScrollArea();
 }

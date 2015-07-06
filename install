@@ -7,6 +7,9 @@ mkdir /tmp/GitHub.wdgt
 cp -a * /tmp/GitHub.wdgt
 cp -a /tmp/GitHub.wdgt .
 rm -rf /tmp/GitHub.wdgt
+rm -rf ~/Library/Widgets/GitHub.wdgt
 cp -a GitHub.wdgt ~/Library/Widgets
 rm -rf GitHub.wdgt
+launchctl stop com.apple.Dock.agent
+sleep 0.7
 open ~/Library/Widgets/GitHub.wdgt

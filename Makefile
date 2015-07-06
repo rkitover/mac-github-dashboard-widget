@@ -7,7 +7,10 @@ build:
 	rm -rf /tmp/GitHub.wdgt
 
 install: build
+	rm -rf ~/Library/Widgets/GitHub.wdgt
 	cp -a GitHub.wdgt ~/Library/Widgets
+	launchctl stop com.apple.Dock.agent
+	sleep 0.7
 	open ~/Library/Widgets/GitHub.wdgt
 
 clean:

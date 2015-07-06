@@ -3,13 +3,12 @@
 <head>
     <meta http-equiv="content-type" content="text/html; charset=utf-8">
     <link rel="stylesheet" href="main.css">
-    <link rel="stylesheet" href="SafariStyle.css">
-    <script type="text/javascript" src="file:///System/Library/WidgetResources/AppleClasses/AppleAnimator.js" charset="utf-8"></script>
-    <script type="text/javascript" src="file:///System/Library/WidgetResources/AppleClasses/AppleButton.js" charset="utf-8"></script>
-    <script type="text/javascript" src="file:///System/Library/WidgetResources/AppleClasses/AppleInfoButton.js" charset="utf-8"></script>
-    <script type="text/javascript" src="file:///System/Library/WidgetResources/AppleClasses/AppleScrollbar.js" charset="utf-8"></script>
-    <script type="text/javascript" src="file:///System/Library/WidgetResources/AppleClasses/AppleScrollArea.js" charset="utf-8"></script>
-    <script type="text/javascript" src="localizedStrings.js" charset="utf-8"></script>
+    <script type="text/javascript" src="apple/WidgetResources/AppleClasses/AppleAnimator.js" charset="utf-8"></script>
+    <script type="text/javascript" src="apple/WidgetResources/AppleClasses/AppleButton.js" charset="utf-8"></script>
+    <script type="text/javascript" src="apple/WidgetResources/AppleClasses/AppleInfoButton.js" charset="utf-8"></script>
+    <script type="text/javascript" src="apple/WidgetResources/AppleClasses/AppleScrollbar.js" charset="utf-8"></script>
+    <script type="text/javascript" src="apple/WidgetResources/AppleClasses/AppleScrollArea.js" charset="utf-8"></script>
+    <script type="text/javascript" src="en.lproj/localizedStrings.js" charset="utf-8"></script>
     <script type="text/javascript" src="attributes.js" charset="utf-8"></script>
     <script type="text/javascript" src="Parts/utilities.js" charset="utf-8"></script>
     <script type="text/javascript" src="Parts/setup.js" charset="utf-8"></script>
@@ -18,15 +17,15 @@
     <script type="text/javascript" src="Parts/Shape.js"></script>
     <script type="text/javascript" src="Parts/ScrollArea.js"></script>
     <script type="text/javascript" src="Parts/Text.js" charset="utf-8"></script>
+    <script type="text/javascript" src="bower_components/moment/moment.js"></script>
     <script type="text/javascript" src="main.js" charset="utf-8"></script>
 </head>
 <body onload="load();">
     <div id="front">
-        <img id="frontImg" src="Images/front.png" alt="">
         <div id="topRectangleShape"></div>
         <div id="bottomRectangleShape" onclick="clickOnBottomRectangle(event);"></div>
         <div id="contentarea">
-            <div id="content" class="content" style="position: absolute; left: 11px; top: 0px; right: 36px; bottom: 0px; overflow-x: hidden; overflow-y: hidden; "></div>
+            <div id="content"></div>
         </div>
         <div id="loading-text"></div>
         <div id="info"></div>
@@ -45,8 +44,10 @@
         <div id="text"></div>
         <input type="text" name="" value="" id="username">
         <input type="text" name="" value="" id="password">
+        <input type="checkbox" name="" value="" id="self_feed">
         <div id="text1"></div>
         <div id="text2"></div>
+        <div id="text3"></div>
     </div>
 </body>
 </html>

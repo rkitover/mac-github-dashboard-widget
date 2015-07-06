@@ -16,6 +16,7 @@ var dashcodePartSpecs = {
     "text": { "creationFunction": "CreateText", "text": "Widget designed by New Leaders in California. " },
     "text1": { "creationFunction": "CreateText", "text": "Username" },
     "text2": { "creationFunction": "CreateText", "text": "Password" },
+    "text3": { "creationFunction": "CreateText", "text": "show own actions" },
     "topRectangleShape": { "creationFunction": "CreateShape", "leftImageWidth": 12, "rightImageWidth": 12 },
     "username_display": { "creationFunction": "CreateText" }
 };

@@ -9,5 +9,6 @@ var attributes = {
     "maxAgeToShow": "30",
     "numItemsToShow": "-1",
     "showDate": "1",
-    "showUpdateBadge": "0"
+    "showUpdateBadge": "0",
+    "cacheSize": "100"
 };

@@ -11,7 +11,7 @@ var localizedStrings = {
     "Done": "Done",
     "Feed URLs: ": "Feed URLs: ",
     "Invalid Feed": "Invalid Feed",
-    "Loading": "Loading",
+    "Loading...": "Loading...",
     "My RSS Feed": "My RSS Feed",
     "New URL: ": "New URL: ",
     "No Feed Specified": "No Feed Specified",
@@ -22,5 +22,7 @@ var localizedStrings = {
     "Reset": "Reset",
     "Set": "Set",
     "The feed does not contain any entries within the specified criteria.": "The feed does not contain any entries within the specified criteria.",
-    "The feed does not contain any entries.": "The feed does not contain any entries."
+    "The feed does not contain any entries.": "The feed does not contain any entries.",
+    "HTTP Error Getting Feed for ": "HTTP Error Getting Feed for ",
+    "you": "you"
 };
