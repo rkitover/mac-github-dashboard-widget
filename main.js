@@ -1245,6 +1245,13 @@ function show()
     if ((now - lastUpdated) > 15 * 60 * 1000) {
         refreshFeed();
     }
+    else {
+        // update relative dates
+        $('#content time').each(function (idx, el) {
+            var dt = parseDate($(this).attr('datetime'));
+            $('.reldate', this).text(moment(dt).fromNow());
+        });
+    }
 }
 
 //
