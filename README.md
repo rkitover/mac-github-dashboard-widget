@@ -25,3 +25,4 @@ Is here: http://www.apple.com/downloads/dashboard/developer/githubwidget.html
   so that the app does not rely on cross-domain XHR and works as a
   regular web app
 * support Chrome and Firefox
+* make both widget and web app completely resizable
