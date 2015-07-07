@@ -16,6 +16,8 @@ var httpFeedRequest = [];                            // The current XMLHttpReque
 var loadingAnimationTimer = null;                    // Updates the "Loading..." animation's dots
 var filterString = "";                               // String to filter results while searching
 var slider;                                          // Article length slider element on the back
+var updateFreq = 15;                                 // how many minutes before the feed is refreshed
+var relDateUpdateTimer = null;                       // Updates relative dates when visible
 
 // Define some namespaces commonly used in feeds
 var NS_DC = "http://purl.org/dc/elements/1.1/";
@@ -1201,6 +1203,7 @@ function load()
     numItemsToShow = +attributes.numItemsToShow;
     maxAgeToShow   = +attributes.maxAgeToShow;
     cacheSize      = +attributes.cacheSize;
+    updateFreq     = +attributes.updateFreq;
     showDate       = attributes.showDate == 1;
 
     slider = document.getElementById("slider");
@@ -1211,6 +1214,7 @@ function load()
     if (!window.widget) { // browser
         window.onfocus = show;
         show();
+        window.onblur  = hide;
     }
 }
 
@@ -1231,7 +1235,23 @@ function remove()
 //
 function hide()
 {
-    // Stop any timers to prevent CPU usage
+    if (relDateUpdateTimer != null) {
+        clearInterval(relDateUpdateTimer);
+        relDateUpdateTimer = null; 
+    }
+}
+
+//
+// Function: updateRelDates()
+// Updates the relative dates in the descriptions of the feed entries.
+// E.g. "1 minute ago" becomes "2 minutes ago."
+//
+function updateRelDates()
+{
+    $('#content time').each(function (idx, el) {
+        var dt = parseDate($(this).attr('datetime'));
+        $('.reldate', this).text(moment(dt).fromNow());
+    });
 }
 
 //
@@ -1240,18 +1260,18 @@ function hide()
 //
 function show()
 {
-    // Refresh feed if 15 minutes have passed since the last update
+    // Refresh feed if updateFreq (15 by default)  minutes have passed
+    // since the last update
     var now = (new Date).getTime();
-    if ((now - lastUpdated) > 15 * 60 * 1000) {
+    if ((now - lastUpdated) > updateFreq * 60 * 1000) {
         refreshFeed();
     }
     else {
-        // update relative dates
-        $('#content time').each(function (idx, el) {
-            var dt = parseDate($(this).attr('datetime'));
-            $('.reldate', this).text(moment(dt).fromNow());
-        });
+        updateRelDates();
     }
+
+    // refresh relative dates every 15 seconds while window is visible
+    relDateUpdateTimer = setInterval(updateRelDates, 15 * 1000);
 }
 
 //

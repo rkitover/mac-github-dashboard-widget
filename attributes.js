@@ -10,5 +10,6 @@ var attributes = {
     "numItemsToShow": "-1",
     "showDate": "1",
     "showUpdateBadge": "0",
-    "cacheSize": "100"
+    "cacheSize": "100",
+    "updateFreq": "15"
 };
