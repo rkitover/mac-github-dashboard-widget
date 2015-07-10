@@ -14,10 +14,11 @@ var lastResults = [];                                // Previous feed contents
 var cacheSize       = 100;                           // How many top items to keep in lastResults cache
 var httpFeedRequest = [];                            // The current XMLHttpRequest
 var loadingAnimationTimer = null;                    // Updates the "Loading..." animation's dots
+var relDateUpdateTimer    = null;                    // Updates relative dates when visible
 var filterString = "";                               // String to filter results while searching
 var slider;                                          // Article length slider element on the back
 var updateFreq = 15;                                 // how many minutes before the feed is refreshed
-var relDateUpdateTimer = null;                       // Updates relative dates when visible
+var newContent = $("<div id='content'>")[0];         // content element for new entries, replaces old element
 
 // Define some namespaces commonly used in feeds
 var NS_DC = "http://purl.org/dc/elements/1.1/";
@@ -78,7 +79,7 @@ function refreshFeed()
                         for (var i = 0; i < documentsToProcess.length; i++) {
                             processFeedDocument(documentsToProcess[i][0], documentsToProcess[i][1]);
                         }
-                        hideLoadingMessage();
+                        showNewContent();
                     }
                 }
                 else { // error
@@ -115,9 +116,6 @@ function refreshFeed()
 function processFeedDocument(doc, url)
 {
     if (doc) {
-        // Remove the old entries
-        clearContent();
-
         // Determine the feed type and call the appropriate parser
         var results;
         if (doc.tagName.toLowerCase() == "feed") {
@@ -167,10 +165,8 @@ function processFeedDocument(doc, url)
         }
 
         // Generate the display
+        clearNewContent();
         addEntriesToContents(results, url);
-
-        // update the scrollbar so scrollbar matches new data
-        refreshScrollArea();
 
         // Show new item indicator if necessary
         if (attributes.showUpdateBadge == 1) {
@@ -514,6 +510,7 @@ function createRow(title, link, date, description, index, url)
         // set the link
         articlehead = document.createElement("a");
         articlehead.setAttribute("href", link);
+        articlehead.addEventListener("click", clickOnLink, false);
     }
     else {
         articlehead = document.createElement("span");
@@ -583,13 +580,62 @@ function addEntriesToContents(entries, url)
     // clicks on title
     nItems = entries.length;
 
-    var contentElement = document.getElementById("content");
     for (var i = 0; i < nItems; ++i) {
         var item = entries[i];
         var row = createRow(item.title, item.link, item.date, item.description, i, url);
 
-        contentElement.appendChild(row);
+        newContent.appendChild(row);
     }
+}
+
+//
+// Function: showNewContent()
+// Replace the contents of the content element with the contents of the
+// new content element built from feed. If there is already content
+// displayed, then the new content will only be inserted when all images
+// have finished loading, to minimize visual artifacts.
+//
+function showNewContent()
+{
+    var loadingImages = function() {
+        return $('img', newContent)
+            .filter(function() { return this.complete == false } )
+    };
+
+    var imagesLoading = function() { return loadingImages().length };
+
+    var inDoReplace = false;
+
+    var doReplace = function() {
+        if (! inDoReplace) {
+            inDoReplace = true;
+            $('#content').html($(newContent).children());
+            refreshScrollArea();
+            hideLoadingMessage();
+        }
+    };
+
+    if ($('#content').children().length != 0 && imagesLoading()) {
+        loadingImages().one('load', function() {
+            if (! imagesLoading()) {
+                doReplace();
+            }
+        }).length || doReplace();
+    }
+    else {
+        doReplace();
+    }
+}
+
+//
+// Function: clearnNewContent()
+// Replace the detached newContent div node with an empty node for
+// filling with the next feed refresh.
+//
+function clearNewContent()
+{
+    // reset new content to empty div
+    newContent = $("<div id='content'>")[0];
 }
 
 //
@@ -891,12 +937,7 @@ function parseDate(dateToParse)
                 }
                 else {
                     // Assume UTC and convert from UTC to local timezone
-                    returnDate = new Date(
-                        1900+returnDate.getYear() + '-' + zeroPad((1+returnDate.getMonth()), 2) + '-' +
-                        zeroPad(returnDate.getDate(), 2) + 'T' + zeroPad(returnDate.getHours(), 2) + ':' +
-                        zeroPad(returnDate.getMinutes(), 2) + ':' + zeroPad(returnDate.getSeconds(), 2) +'.' +
-                        zeroPad(returnDate.getMilliseconds(), 3) + 'Z'
-                    );
+                    returnDate.setTime(returnDate.getTime() - returnDate.getTimezoneOffset() * 60 * 1000);
                 }
             }
         }
