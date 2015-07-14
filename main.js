@@ -609,9 +609,11 @@ function showNewContent()
     var doReplace = function() {
         if (! inDoReplace) {
             inDoReplace = true;
-            $('#content').html($(newContent).children());
-            refreshScrollArea();
-            hideLoadingMessage();
+            $('#content').hide().html($(newContent).children())
+              .show('slide', { direction: 'left' }, 600, function() {
+                refreshScrollArea();
+                hideLoadingMessage();
+            });
         }
     };
 
