@@ -474,6 +474,13 @@ div.article {
     padding-bottom: 12px;
 }
 
+div.message {
+    max-width: 40em;
+    height: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
 /* Uncomment to provide alternating rows
 div.odd {
     background-color: rgb(255, 255, 255);
