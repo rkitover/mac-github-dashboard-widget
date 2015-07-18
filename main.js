@@ -148,7 +148,11 @@ function processFeedDocument(doc, url)
 
         // sort by date
         allResults.sort(function(a, b) {
-            return b.date.getTime() - a.date.getTime();
+            if (b.date.getTime() != a.date.getTime()) {
+                return b.date.getTime() - a.date.getTime();
+            }
+
+            return a.entryNum - b.entryNum;
         });
 
         // remove duplicates
@@ -287,7 +291,8 @@ function parseAtomFeed(atom, url)
                     title: title,
                     link: link,
                     date: itemDate,
-                    description: description
+                    description: description,
+                    entryNum: results.length
                 }
             }
         }
@@ -381,7 +386,8 @@ function parseRSSFeed(rss, url)
                     title: allData(title),
                     link: allData(link),
                     date: itemDate,
-                    description: allData(description)
+                    description: allData(description),
+                    entryNum: results.length
                 }
             }
         }
