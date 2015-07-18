@@ -10,7 +10,8 @@ var maxAgeToShow;           // Max age in days; 0 = today, -1 = all
 var showDate;               // Whether to show the article dates
 var feed = { url: [], title: [], baseURL: [] };      // Object to hold information about the current feed
 var lastUpdated = 0;                                 // Track last refresh time to avoid excessive updates
-var lastResults = [];                                // Previous feed contents
+var lastResults = {};                                // Previous feed contents, keyed by URL
+var lastUIResults = [];                              // Previous combined feed contents in the UI, for new checking.
 var cacheSize       = 100;                           // How many top items to keep in lastResults cache
 var httpFeedRequest = [];                            // The current XMLHttpRequest
 var loadingAnimationTimer = null;                    // Updates the "Loading..." animation's dots
@@ -143,16 +144,21 @@ function processFeedDocument(doc, url)
             fixDateTimes(entry.description);
         });
 
-        // merge into lastResults (for multiple feeds)
-        var allResults = results.concat(lastResults);
+        // update results of this feed (keyed by URL) but keep only last
+        // 100 or so entries
+        lastResults[url] = updateEntriesList(lastResults[url], results).slice(0, cacheSize);
+
+        // merge all feeds
+        var allResults = [];
+        for (var url in lastResults) {
+            if (lastResults.hasOwnProperty(url)) {
+                allResults = allResults.concat(lastResults[url]);
+            }
+        }
 
         // sort by date
         allResults.sort(function(a, b) {
-            if (b.date.getTime() != a.date.getTime()) {
-                return b.date.getTime() - a.date.getTime();
-            }
-
-            return a.entryNum - b.entryNum;
+            return b.date.getTime() - a.date.getTime();
         });
 
         // remove duplicates
@@ -174,21 +180,46 @@ function processFeedDocument(doc, url)
 
         // Show new item indicator if necessary
         if (attributes.showUpdateBadge == 1) {
-            checkNewItems(lastResults, results);
+            checkNewItems(lastUIResults, results);
         }
-
-        // save to lastResults for next merge but only the top 100 or so
-        // entries (so that there's no memory leak)
-        lastResults = allResults.slice(0, cacheSize);
 
         // set lastUpdated to the current time to keep track of the last time a request was posted
         lastUpdated = (new Date).getTime();
+
+        // set the list of the last population of the content area for
+        // new item checking
+        lastUIResults = results;
     }
     else {
         // document is empty
         showMessageInContents(dashcode.getLocalizedString("Invalid Feed"),
                               dashcode.getLocalizedString("%s does not appear to be a valid RSS or Atom feed.").replace("%s", url));
     }
+}
+
+//
+// Function: updateEntriesList(oldArray, newArray)
+// Adds new feed entries from newArray to oldArray and returns the
+// the resulting array.
+//
+// oldArray: the last previous contents of this feed
+// newArray: the new contents of this feed
+//
+// Returns: combined contents, with new and old entries
+//
+function updateEntriesList(oldEntries, newEntries) {
+    if ((! oldEntries) || (! oldEntries.length)) {
+        return newEntries;
+    }
+
+    var results = [];
+    var i      = 0;
+
+    while (! entriesEqual(newEntries[i], oldEntries[0])) {
+        results.push(newEntries[i]);
+    }
+
+    return results.concat(oldEntries);
 }
 
 //
@@ -203,21 +234,34 @@ function deDup(arr) {
     return arr.filter(function(item, pos, ary) {
         if (pos == 0) return true;
 
+        return (! entriesEqual(item, ary[pos - 1]));
+    });
+}
+
+//
+// Function: entriesEqual(entry1, entry2)
+// Check if feed entry1 is the same as entry2.
+//
+// entry1: a feed entry
+// entry2: a feed entry
+//
+// Returns: true if equal, false otherwise
+//
+function entriesEqual(e1, e2) {
         var removeRelDate = function(node) {
             var clone = node.cloneNode(true);
             $('.reldate', clone).remove();
             return clone.innerHTML;
         };
 
-        if (item['link']                       == ary[pos - 1]['link']            &&
-            item['date'].getTime()             == ary[pos - 1]['date'].getTime()  &&
-            item['title'].innerHTML            == ary[pos - 1]['title'].innerHTML &&
-            removeRelDate(item['description']) == removeRelDate(ary[pos - 1]['description'])) {
-                return false;
+        if (e1['link']                       == e2['link']            &&
+            e1['date'].getTime()             == e2['date'].getTime()  &&
+            e1['title'].innerHTML            == e2['title'].innerHTML &&
+            removeRelDate(e1['description']) == removeRelDate(e2['description'])) {
+                return true;
         }
 
-        return true;
-    });
+        return false;
 }
 
 //
@@ -291,8 +335,7 @@ function parseAtomFeed(atom, url)
                     title: title,
                     link: link,
                     date: itemDate,
-                    description: description,
-                    entryNum: results.length
+                    description: description
                 }
             }
         }
@@ -386,8 +429,7 @@ function parseRSSFeed(rss, url)
                     title: allData(title),
                     link: allData(link),
                     date: itemDate,
-                    description: allData(description),
-                    entryNum: results.length
+                    description: allData(description)
                 }
             }
         }
@@ -1066,11 +1108,11 @@ function search(searchEvent, url)
     // Set the new search string, escaping special rexexp characters
     var searchTerms = searchEvent.target.value;
     filterString = searchTerms.replace(/([\^\$\/\.\+\*\\\?\(\)\[\]\{\}\|])/ig, "\\$1");
-    if (lastResults && lastResults.length) {
+    if (lastUIResults && lastUIResults.length) {
         // Remove the current entries
         clearContent();
         // Filter entries
-        var searchResults = filterEntries(lastResults);
+        var searchResults = filterEntries(lastUIResults);
         // Got no results?
         if (searchResults == null || searchResults.length < 1) {
             showMessageInContents(dashcode.getLocalizedString("No Items Found"),
@@ -1422,7 +1464,8 @@ function showFront(event) {
   }
 
   // reset cache because 'own feed' option may have changed
-  lastResults = [];
+  lastResults   = {};
+  lastUIResults = [];
 
   determineFeedSource();
   refreshFeed();
